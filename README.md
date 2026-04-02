@@ -5,7 +5,7 @@ colorFrom: indigo
 colorTo: purple
 sdk: docker
 pinned: false
-short_description: AI-powered video intelligence — frame extraction, object detection, and semantic search
+short_description: AI video intelligence with semantic search
 ---
 
 # FRAMEIQ
