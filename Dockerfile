@@ -1,13 +1,8 @@
 FROM python:3.11-slim
 
-# System deps: ffmpeg + build tools for dlib (face_recognition) + libGL for opencv
+# System deps: ffmpeg + libGL for opencv-headless
 RUN apt-get update && apt-get install -y \
     ffmpeg \
-    cmake \
-    build-essential \
-    libopenblas-dev \
-    liblapack-dev \
-    libx11-dev \
     libgl1 \
     && rm -rf /var/lib/apt/lists/*
 

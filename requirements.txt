@@ -13,7 +13,7 @@ python-multipart
 aiofiles
 pydantic
 
-# Vision modules
-face-recognition
-easyocr
-ultralytics
+# Vision modules (disabled — require local dlib/cmake build)
+# face-recognition
+# easyocr
+# ultralytics
