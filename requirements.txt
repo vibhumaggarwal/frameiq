@@ -1,0 +1,19 @@
+opencv-python-headless
+anthropic
+ffmpeg-python
+sentence-transformers
+faiss-cpu
+numpy
+Pillow
+srt
+tqdm
+fastapi
+uvicorn[standard]
+python-multipart
+aiofiles
+pydantic
+
+# Vision modules
+face-recognition
+easyocr
+ultralytics

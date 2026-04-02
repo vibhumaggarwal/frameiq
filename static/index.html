@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FRAMEIQ</title>
+  <meta name="description" content="AI-powered video analysis with face recognition, license plates, object detection, semantic search, and RAG." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #07090f; --bg2: #0d1020; --surface: rgba(255,255,255,0.04);
+      --surface2: rgba(255,255,255,0.07); --border: rgba(255,255,255,0.07);
+      --border-hi: rgba(255,255,255,0.13); --accent: #7c6aff; --accent2: #a78bfa;
+      --cyan: #22d3ee; --green: #34d399; --orange: #fb923c;
+      --red: #f87171; --text: #f1f5f9; --muted: #475569; --muted2: #94a3b8;
+      --radius: 14px;
+    }
+    html, body { height: 100%; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; display: flex; flex-direction: column; }
+
+    /* Login */
+    #login-overlay { position: fixed; inset: 0; z-index: 999; background: var(--bg); display: flex; align-items: center; justify-content: center; }
+    #login-overlay.hidden { display: none; }
+    .login-box { background: var(--bg2); border: 1px solid var(--border-hi); border-radius: 20px; padding: 2.5rem 2rem; width: 340px; text-align: center; }
+    .login-logo { font-size: 1.5rem; font-weight: 800; background: linear-gradient(135deg, var(--accent2), var(--cyan)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 1.5rem; }
+    .login-box input { width: 100%; padding: .75rem 1rem; background: var(--surface); border: 1px solid var(--border-hi); border-radius: 10px; color: var(--text); font-family: inherit; font-size: .9rem; margin-bottom: 1rem; outline: none; }
+    .login-box input:focus { border-color: var(--accent); }
+
+    /* Layout */
+    header { display: flex; align-items: center; justify-content: space-between; padding: .75rem 1.5rem; background: rgba(7,9,15,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); flex-shrink: 0; z-index: 10; }
+    .logo { font-size: 1.15rem; font-weight: 800; background: linear-gradient(135deg, var(--accent2), var(--cyan)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .nav-tabs { display: flex; gap: .25rem; }
+    .nav-tab { padding: .45rem 1rem; border-radius: 8px; font-size: .82rem; font-weight: 600; cursor: pointer; border: none; background: none; color: var(--muted2); transition: background .15s, color .15s; }
+    .nav-tab.active { background: var(--surface2); color: var(--text); }
+    .nav-tab:hover:not(.active) { background: var(--surface); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+    main { flex: 1; overflow-y: auto; padding: 1.5rem; }
+    .page { display: none; max-width: 860px; margin: 0 auto; }
+    .page.active { display: block; }
+
+    /* Cards */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.25rem; }
+    .card-title { font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent2); margin-bottom: 1rem; }
+
+    /* Buttons */
+    .btn { display: inline-flex; align-items: center; gap: .4rem; padding: .55rem 1.1rem; border-radius: 9px; font-size: .82rem; font-weight: 600; cursor: pointer; border: none; transition: opacity .15s, transform .15s; text-decoration: none; }
+    .btn:hover { opacity: .85; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-primary { background: linear-gradient(135deg, var(--accent), #5b4fcf); color: #fff; }
+    .btn-ghost { background: var(--surface2); border: 1px solid var(--border-hi); color: var(--text); }
+    .btn-danger { background: rgba(248,113,113,0.15); border: 1px solid rgba(248,113,113,0.3); color: var(--red); }
+    .btn-sm { padding: .35rem .75rem; font-size: .75rem; }
+
+    /* Drop zone */
+    #drop-zone { border: 2px dashed var(--border-hi); border-radius: var(--radius); padding: 3rem 2rem; text-align: center; cursor: pointer; transition: border-color .2s, background .2s; }
+    #drop-zone.drag-over { border-color: var(--accent); background: rgba(124,106,255,0.07); }
+    #drop-zone .drop-icon { font-size: 2.5rem; margin-bottom: .75rem; }
+    #drop-zone .drop-title { font-size: 1rem; font-weight: 600; margin-bottom: .4rem; }
+    #drop-zone .drop-sub { font-size: .82rem; color: var(--muted2); }
+    #file-info { background: var(--surface2); border: 1px solid var(--border-hi); border-radius: 10px; padding: .85rem 1.1rem; font-size: .85rem; margin-top: 1rem; display: none; justify-content: space-between; align-items: center; }
+    .upload-options { display: flex; gap: 1.5rem; margin: 1rem 0; align-items: center; flex-wrap: wrap; }
+    .option-label { font-size: .8rem; color: var(--muted2); font-weight: 500; }
+    input[type="range"] { -webkit-appearance: none; appearance: none; width: 140px; height: 4px; border-radius: 99px; outline: none; background: linear-gradient(90deg, var(--accent) var(--pct, 13.3%), var(--border-hi) 0%); }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent2); cursor: pointer; }
+
+    /* Progress */
+    .progress-wrap { margin: .75rem 0; }
+    .progress-label { display: flex; justify-content: space-between; font-size: .78rem; margin-bottom: .4rem; color: var(--muted2); }
+    .progress-bar { height: 6px; border-radius: 99px; background: var(--surface2); overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--cyan)); width: 0%; transition: width .5s ease; }
+
+    /* Badges */
+    .badge { display: inline-block; padding: .2rem .55rem; border-radius: 6px; font-size: .7rem; font-weight: 700; letter-spacing: .04em; }
+    .badge-pending { background: rgba(148,163,184,0.15); color: var(--muted2); }
+    .badge-extracting,.badge-describing,.badge-embedding,.badge-indexing { background: rgba(124,106,255,0.15); color: var(--accent2); }
+    .badge-done { background: rgba(52,211,153,0.15); color: var(--green); }
+    .badge-failed { background: rgba(248,113,113,0.15); color: var(--red); }
+
+    /* Job cards */
+    .job-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; }
+    .job-header { display: flex; align-items: center; gap: .75rem; margin-bottom: .75rem; }
+    .job-filename { font-weight: 600; font-size: .9rem; flex: 1; }
+    .job-actions { display: flex; gap: .5rem; margin-top: .75rem; flex-wrap: wrap; }
+
+    /* Library */
+    .video-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .video-thumb { width: 52px; height: 52px; border-radius: 10px; background: linear-gradient(135deg, rgba(124,106,255,0.3), rgba(34,211,238,0.3)); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0; }
+    .video-info { flex: 1; min-width: 200px; }
+    .video-name { font-weight: 600; font-size: .9rem; }
+    .video-meta { font-size: .75rem; color: var(--muted2); margin-top: .2rem; }
+    .video-actions { display: flex; gap: .4rem; flex-wrap: wrap; }
+
+    /* Known faces grid */
+    .faces-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: .75rem; }
+    .face-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: .75rem; text-align: center; position: relative; }
+    .face-avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; margin: 0 auto .5rem; display: block; background: var(--surface); }
+    .face-avatar-placeholder { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, rgba(124,106,255,0.3), rgba(34,211,238,0.3)); margin: 0 auto .5rem; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; }
+    .face-name { font-size: .78rem; font-weight: 600; word-break: break-word; }
+    .face-count { font-size: .65rem; color: var(--muted2); margin-top: .2rem; }
+    .face-del { position: absolute; top: .35rem; right: .35rem; background: rgba(248,113,113,0.15); border: none; color: var(--red); border-radius: 6px; width: 22px; height: 22px; cursor: pointer; font-size: .75rem; display: flex; align-items: center; justify-content: center; }
+    .face-del:hover { background: rgba(248,113,113,0.3); }
+
+    /* Face upload */
+    #face-drop-zone { border: 2px dashed var(--border-hi); border-radius: 10px; padding: 1.25rem; text-align: center; cursor: pointer; font-size: .82rem; color: var(--muted2); transition: border-color .2s; }
+    #face-drop-zone.drag-over { border-color: var(--accent); }
+    #face-preview { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; display: none; margin: .5rem auto; }
+
+    /* Inner tabs */
+    .tabs { display: flex; gap: .25rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: .25rem; }
+    .tab-btn { padding: .45rem 1rem; border-radius: 8px 8px 0 0; font-size: .82rem; font-weight: 600; cursor: pointer; border: none; background: none; color: var(--muted2); border-bottom: 2px solid transparent; transition: color .15s; }
+    .tab-btn.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Inputs */
+    .input-row { display: flex; gap: .6rem; margin-bottom: 1rem; }
+    .text-input { flex: 1; padding: .65rem 1rem; background: var(--surface); border: 1px solid var(--border-hi); border-radius: 10px; color: var(--text); font-family: inherit; font-size: .88rem; outline: none; }
+    .text-input:focus { border-color: var(--accent); }
+    select.text-input { cursor: pointer; }
+
+    /* Filter chips */
+    .filter-chips { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; }
+    .chip { display: inline-flex; align-items: center; gap: .3rem; padding: .3rem .75rem; border-radius: 99px; font-size: .75rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-hi); background: var(--surface); color: var(--muted2); transition: all .15s; user-select: none; }
+    .chip.active { border-color: var(--accent); background: rgba(124,106,255,0.15); color: var(--accent2); }
+    .filter-row { display: flex; gap: .5rem; margin-bottom: .75rem; animation: slideDown .2s ease; }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Results */
+    .result-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 1rem; margin-bottom: .75rem; cursor: pointer; transition: border-color .2s; }
+    .result-item:hover { border-color: var(--accent); }
+    .result-ts { font-family: 'JetBrains Mono', monospace; font-size: .75rem; color: var(--orange); font-weight: 600; }
+    .result-score { font-size: .72rem; color: var(--accent2); font-weight: 700; }
+    .result-desc { font-size: .85rem; color: var(--muted2); margin-top: .3rem; line-height: 1.5; }
+    .result-tags { display: flex; gap: .35rem; flex-wrap: wrap; margin-top: .5rem; }
+    .tag { font-size: .65rem; font-weight: 600; padding: .15rem .45rem; border-radius: 5px; }
+    .tag-face { background: rgba(167,139,250,0.15); color: var(--accent2); }
+    .tag-plate { background: rgba(251,146,60,0.15); color: var(--orange); }
+    .tag-obj { background: rgba(34,211,238,0.15); color: var(--cyan); }
+
+    /* RAG */
+    #rag-output { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem; min-height: 120px; font-size: .88rem; line-height: 1.75; white-space: pre-wrap; color: var(--muted2); font-family: inherit; }
+    .rag-ts-list { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .75rem; }
+    .ts-chip { font-family: 'JetBrains Mono', monospace; font-size: .72rem; font-weight: 600; padding: .25rem .6rem; border-radius: 6px; background: rgba(251,146,60,0.12); border: 1px solid rgba(251,146,60,0.3); color: var(--orange); cursor: pointer; transition: background .15s; }
+    .ts-chip:hover { background: rgba(251,146,60,0.2); }
+
+    /* Frame modal */
+    #frame-modal { position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+    #frame-modal.hidden { display: none; }
+    .modal-box { background: var(--bg2); border: 1px solid var(--border-hi); border-radius: 18px; max-width: 760px; width: 100%; max-height: 90vh; overflow-y: auto; }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); }
+    .modal-title { font-size: .95rem; font-weight: 700; }
+    .modal-close { background: var(--surface2); border: 1px solid var(--border-hi); color: var(--muted2); border-radius: 8px; width: 32px; height: 32px; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; }
+    .modal-close:hover { color: var(--text); }
+    .modal-body { padding: 1.5rem; }
+    .modal-frame-img { width: 100%; border-radius: 10px; display: block; }
+    .modal-section { margin-top: 1.25rem; }
+    .modal-section-title { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: .6rem; }
+    .modal-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+    .modal-item { background: var(--surface); border-radius: 8px; padding: .6rem .85rem; font-size: .8rem; }
+    .modal-item-label { color: var(--muted2); font-size: .7rem; margin-bottom: .15rem; }
+    .modal-item-value { font-weight: 600; }
+
+    /* Toast */
+    #toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--bg2); border: 1px solid var(--border-hi); border-radius: 10px; padding: .75rem 1.1rem; font-size: .82rem; color: var(--text); opacity: 0; pointer-events: none; transition: opacity .3s; z-index: 999; }
+    #toast.show { opacity: 1; }
+
+    /* Misc */
+    .empty { text-align: center; padding: 3rem 1rem; color: var(--muted); }
+    .empty-icon { font-size: 2rem; margin-bottom: .5rem; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* Orbs */
+    .orb { position: fixed; border-radius: 50%; filter: blur(100px); pointer-events: none; z-index: 0; }
+    .orb-1 { width: 500px; height: 500px; top: -200px; left: -100px; background: rgba(124,106,255,0.09); }
+    .orb-2 { width: 400px; height: 400px; bottom: -100px; right: -100px; background: rgba(34,211,238,0.07); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #1e2235; border-radius: 99px; }
+  </style>
+</head>
+<body>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<!-- Login -->
+<div id="login-overlay">
+  <div class="login-box">
+    <div class="login-logo">FRAMEIQ</div>
+    <p style="color:var(--muted2);font-size:.85rem;margin-bottom:1.25rem">Enter your access password</p>
+    <p id="login-err" style="color:var(--red);font-size:.8rem;margin-bottom:.75rem;display:none"></p>
+    <input type="password" id="login-input" placeholder="Password" />
+    <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doLogin()">Unlock →</button>
+  </div>
+</div>
+
+<!-- Frame detail modal -->
+<div id="frame-modal" class="hidden" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-ts">—</div>
+        <div style="font-size:.72rem;color:var(--muted2);margin-top:.2rem" id="modal-score"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <img id="modal-img" class="modal-frame-img" alt="Frame" style="display:none" />
+      <div class="modal-section">
+        <div class="modal-section-title">Scene Description</div>
+        <p id="modal-desc" style="font-size:.88rem;line-height:1.7;color:var(--muted2)"></p>
+      </div>
+      <div class="modal-meta-grid" id="modal-meta" style="margin-top:1rem"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="logo">FRAMEIQ</div>
+  <nav class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('upload',this)" id="tab-upload">⬆ Upload</button>
+    <button class="nav-tab" onclick="showPage('jobs',this)" id="tab-jobs">⚙ Jobs <span id="jobs-badge" style="display:none;background:var(--accent);color:#fff;border-radius:99px;padding:.05rem .4rem;font-size:.65rem;margin-left:.2rem"></span></button>
+    <button class="nav-tab" onclick="showPage('faces',this)" id="tab-faces">👤 Faces</button>
+    <button class="nav-tab" onclick="showPage('library',this)" id="tab-library">📁 Library</button>
+    <button class="nav-tab" onclick="showPage('searchask',this)" id="tab-searchask">🔍 Search & Ask</button>
+  </nav>
+  <div class="status-dot" title="Server connected"></div>
+</header>
+
+<main>
+
+<!-- ── Upload ── -->
+<div class="page active" id="page-upload">
+  <div class="card">
+    <div class="card-title">Upload Video</div>
+    <div id="drop-zone" onclick="document.getElementById('file-input').click()"
+         ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+      <div class="drop-icon">🎬</div>
+      <div class="drop-title">Drop a video here</div>
+      <div class="drop-sub">MP4, MKV, MOV, AVI up to 500MB</div>
+    </div>
+    <input type="file" id="file-input" accept="video/*" style="display:none" onchange="handleFileSelect(event)" />
+    <div id="file-info">
+      <span id="file-name" class="mono" style="font-size:.82rem"></span>
+      <span id="file-size" style="color:var(--muted2);font-size:.78rem"></span>
+    </div>
+    <div class="upload-options">
+      <div>
+        <div class="option-label">Keyframe interval</div>
+        <div style="display:flex;align-items:center;gap:.5rem;margin-top:.3rem">
+          <input type="range" id="interval-slider" min="1" max="30" value="5" oninput="updateInterval(this)" />
+          <span id="interval-val" class="mono" style="font-size:.8rem;color:var(--accent2);width:2.5rem">5s</span>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="startUpload()" id="upload-btn" disabled style="opacity:.4">⚡ Process Video</button>
+  </div>
+  <div class="card" style="background:rgba(124,106,255,0.04);border-color:rgba(124,106,255,0.15)">
+    <div class="card-title" style="color:var(--muted)">Pipeline</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem">
+      <div style="font-size:.82rem"><div style="font-size:1rem;margin-bottom:.25rem">🖼</div><div style="font-weight:600;margin-bottom:.15rem">Extract Frames</div><div style="color:var(--muted2)">One frame every N seconds</div></div>
+      <div style="font-size:.82rem"><div style="font-size:1rem;margin-bottom:.25rem">👤</div><div style="font-weight:600;margin-bottom:.15rem">Face Recognition</div><div style="color:var(--muted2)">Identify people from known faces</div></div>
+      <div style="font-size:.82rem"><div style="font-size:1rem;margin-bottom:.25rem">🚗</div><div style="font-weight:600;margin-bottom:.15rem">Plate Detection</div><div style="color:var(--muted2)">OCR license plates locally</div></div>
+      <div style="font-size:.82rem"><div style="font-size:1rem;margin-bottom:.25rem">📦</div><div style="font-weight:600;margin-bottom:.15rem">Object Tracking</div><div style="color:var(--muted2)">YOLOv8n + ByteTrack</div></div>
+      <div style="font-size:.82rem"><div style="font-size:1rem;margin-bottom:.25rem">🤖</div><div style="font-weight:600;margin-bottom:.15rem">AI Descriptions</div><div style="color:var(--muted2)">Claude with vision context</div></div>
+      <div style="font-size:.82rem"><div style="font-size:1rem;margin-bottom:.25rem">🔍</div><div style="font-weight:600;margin-bottom:.15rem">Search & Ask</div><div style="color:var(--muted2)">Local FAISS + RAG</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Jobs ── -->
+<div class="page" id="page-jobs">
+  <div id="jobs-list"><div class="empty"><div class="empty-icon">⚙</div>No jobs yet.</div></div>
+</div>
+
+<!-- ── Faces ── -->
+<div class="page" id="page-faces">
+  <div class="card">
+    <div class="card-title">Add Known Face</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start">
+      <div>
+        <div id="face-drop-zone" onclick="document.getElementById('face-input').click()"
+             ondrop="handleFaceDrop(event)" ondragover="e=>{e.preventDefault();this.classList.add('drag-over')}" ondragleave="e=>{this.classList.remove('drag-over')}">
+          Drop photo here or click to browse
+        </div>
+        <input type="file" id="face-input" accept="image/*" style="display:none" onchange="handleFaceSelect(event)" />
+        <img id="face-preview" class="face-avatar" alt="preview" />
+      </div>
+      <div>
+        <div class="option-label" style="margin-bottom:.4rem">Person's name</div>
+        <input class="text-input" id="face-name-input" placeholder="e.g. John Doe" style="margin-bottom:.75rem;flex:none;width:100%" />
+        <button class="btn btn-primary" onclick="uploadFace()" style="width:100%;justify-content:center">Add Face</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+      <div class="card-title" style="margin-bottom:0">Known Faces</div>
+      <button class="btn btn-ghost btn-sm" onclick="loadFaces()">↺ Refresh</button>
+    </div>
+    <div id="faces-grid" class="faces-grid"><div class="empty" style="grid-column:1/-1"><div class="empty-icon">👤</div>No known faces yet.</div></div>
+  </div>
+</div>
+
+<!-- ── Library ── -->
+<div class="page" id="page-library">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+    <h2 style="font-size:1rem;font-weight:700">Processed Videos</h2>
+    <button class="btn btn-ghost btn-sm" onclick="loadLibrary()">↺ Refresh</button>
+  </div>
+  <div id="library-list"><div class="empty"><div class="empty-icon">📁</div>No processed videos yet.</div></div>
+</div>
+
+<!-- ── Search & Ask ── -->
+<div class="page" id="page-searchask">
+  <div class="card" style="margin-bottom:1rem">
+    <div class="card-title">Select Video</div>
+    <select class="text-input" id="video-selector"><option value="">— Choose a processed video —</option></select>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchInnerTab('search',this)">🔍 Search</button>
+    <button class="tab-btn" onclick="switchInnerTab('ask',this)">💬 Ask</button>
+  </div>
+
+  <!-- Search -->
+  <div class="tab-panel active" id="tab-search">
+    <div class="input-row">
+      <input class="text-input" id="search-input" placeholder="e.g. car chase at night…" onkeydown="if(event.key==='Enter')doSearch()" />
+      <button class="btn btn-primary" onclick="doSearch()">Search</button>
+    </div>
+    <div class="filter-chips">
+      <span class="chip" id="chip-face" onclick="toggleChip('face')">👤 Face</span>
+      <span class="chip" id="chip-plate" onclick="toggleChip('plate')">🚗 Plate</span>
+      <span class="chip" id="chip-object" onclick="toggleChip('object')">📦 Object</span>
+    </div>
+    <div id="filter-face" class="filter-row" style="display:none">
+      <input class="text-input" id="face-filter-input" placeholder="e.g. John Doe" />
+    </div>
+    <div id="filter-plate" class="filter-row" style="display:none">
+      <input class="text-input" id="plate-filter-input" placeholder="Partial plate e.g. MH12" />
+    </div>
+    <div id="filter-object" class="filter-row" style="display:none">
+      <input class="text-input" id="object-filter-input" placeholder="e.g. backpack, car" />
+    </div>
+    <div id="search-results"></div>
+  </div>
+
+  <!-- Ask -->
+  <div class="tab-panel" id="tab-ask">
+    <div class="input-row">
+      <input class="text-input" id="ask-input" placeholder="e.g. does anyone die in this movie?" onkeydown="if(event.key==='Enter')doAsk()" />
+      <button class="btn btn-primary" id="ask-btn" onclick="doAsk()">Ask</button>
+    </div>
+    <div id="rag-output">Response will appear here…</div>
+    <div class="rag-ts-list" id="rag-timestamps"></div>
+  </div>
+</div>
+
+</main>
+<div id="toast"></div>
+
+<script>
+/* ── State ─────────────────────────────────────────────────────────────────── */
+let authToken = localStorage.getItem('fiq_token') || '';
+let selectedFile = null, selectedFaceFile = null;
+let activeJobs = {};
+let currentChips = { face: false, plate: false, object: false };
+
+/* ── Auth ───────────────────────────────────────────────────────────────────── */
+async function checkAuth() {
+  const r = await apiFetch('/api/health');
+  if (r === null) return;
+  document.getElementById('login-overlay').classList.add('hidden');
+  init();
+}
+
+async function doLogin() {
+  const pw = document.getElementById('login-input').value;
+  const err = document.getElementById('login-err');
+  err.style.display = 'none';
+  const r = await fetch('/api/auth', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pw }) });
+  if (r.ok) {
+    authToken = pw;
+    localStorage.setItem('fiq_token', pw);
+    document.getElementById('login-overlay').classList.add('hidden');
+    init();
+  } else {
+    err.textContent = 'Wrong password.';
+    err.style.display = 'block';
+  }
+}
+document.getElementById('login-input').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+async function apiFetch(url, opts = {}) {
+  opts.headers = opts.headers || {};
+  if (authToken) opts.headers['Authorization'] = `Bearer ${authToken}`;
+  try {
+    const r = await fetch(url, opts);
+    if (r.status === 401) { document.getElementById('login-overlay').classList.remove('hidden'); return null; }
+    return r;
+  } catch (e) { toast('Connection error'); return null; }
+}
+
+/* ── Navigation ─────────────────────────────────────────────────────────────── */
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'library') loadLibrary();
+  if (name === 'searchask') loadVideoSelector();
+  if (name === 'faces') loadFaces();
+}
+
+function switchInnerTab(name, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+/* ── Upload: video ──────────────────────────────────────────────────────────── */
+function handleDragOver(e) { e.preventDefault(); document.getElementById('drop-zone').classList.add('drag-over'); }
+function handleDragLeave() { document.getElementById('drop-zone').classList.remove('drag-over'); }
+function handleDrop(e) { e.preventDefault(); handleDragLeave(); const f = e.dataTransfer.files[0]; if (f) setFile(f); }
+function handleFileSelect(e) { const f = e.target.files[0]; if (f) setFile(f); }
+
+function setFile(file) {
+  selectedFile = file;
+  document.getElementById('file-name').textContent = file.name;
+  document.getElementById('file-size').textContent = (file.size/1024/1024).toFixed(1) + ' MB';
+  document.getElementById('file-info').style.display = 'flex';
+  const btn = document.getElementById('upload-btn');
+  btn.disabled = false; btn.style.opacity = '1';
+}
+
+function updateInterval(el) {
+  const v = parseInt(el.value);
+  document.getElementById('interval-val').textContent = v + 's';
+  el.style.setProperty('--pct', ((v-1)/29*100).toFixed(1) + '%');
+}
+
+async function startUpload() {
+  if (!selectedFile) return;
+  const btn = document.getElementById('upload-btn');
+  btn.disabled = true; btn.textContent = 'Uploading…';
+  const fd = new FormData();
+  fd.append('file', selectedFile);
+  fd.append('interval', document.getElementById('interval-slider').value);
+  const r = await apiFetch('/api/process', { method:'POST', body: fd });
+  btn.disabled = false; btn.textContent = '⚡ Process Video';
+  if (!r) return;
+  const data = await r.json();
+  if (data.job_id) {
+    trackJob(data.job_id);
+    showPage('jobs', document.getElementById('tab-jobs'));
+    toast('Job started!');
+  }
+}
+
+/* ── Jobs ───────────────────────────────────────────────────────────────────── */
+function trackJob(id) {
+  if (activeJobs[id]) return;
+  activeJobs[id] = setInterval(() => pollJob(id), 2000);
+  pollJob(id);
+}
+
+async function pollJob(id) {
+  const r = await apiFetch(`/api/jobs/${id}`);
+  if (!r) return;
+  const job = await r.json();
+  renderJob(job);
+  if (job.status === 'done' || job.status === 'failed') {
+    clearInterval(activeJobs[id]); delete activeJobs[id];
+    if (job.status === 'done') toast('✅ Done: ' + job.filename);
+  }
+  updateJobsBadge();
+}
+
+function updateJobsBadge() {
+  const b = document.getElementById('jobs-badge');
+  const count = Object.keys(activeJobs).length;
+  if (count > 0) { b.textContent = count; b.style.display = 'inline'; } else { b.style.display = 'none'; }
+}
+
+function renderJob(job) {
+  const container = document.getElementById('jobs-list');
+  const empty = container.querySelector('.empty'); if (empty) empty.remove();
+  let el = document.getElementById('job-' + job.job_id);
+  if (!el) { el = document.createElement('div'); el.id = 'job-' + job.job_id; el.className = 'job-card'; container.prepend(el); }
+  el.innerHTML = `
+    <div class="job-header"><div class="job-filename">${job.filename}</div><span class="badge badge-${job.status}">${job.status}</span></div>
+    ${job.status !== 'failed' ? `<div class="progress-wrap"><div class="progress-label"><span>${job.message}</span><span>${job.progress}%</span></div><div class="progress-bar"><div class="progress-fill" style="width:${job.progress}%"></div></div></div>` : `<div style="color:var(--red);font-size:.82rem;margin:.4rem 0">✗ ${job.error}</div>`}
+    ${job.status === 'done' ? `<div class="job-actions">
+      <a class="btn btn-ghost btn-sm" href="/api/files/${job.video_id}/download">⬇ MKV</a>
+      <a class="btn btn-ghost btn-sm" href="/api/files/${job.video_id}/srt">⬇ SRT</a>
+      <button class="btn btn-primary btn-sm" onclick="goSearch('${job.video_id}')">🔍 Search</button>
+    </div>` : ''}
+    <div style="font-size:.7rem;color:var(--muted);margin-top:.5rem">${job.created_at}</div>`;
+}
+
+/* ── Library ────────────────────────────────────────────────────────────────── */
+async function loadLibrary() {
+  const r = await apiFetch('/api/files'); if (!r) return;
+  const { files } = await r.json();
+  const el = document.getElementById('library-list');
+  if (!files.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📁</div>No processed videos yet.</div>'; return; }
+  el.innerHTML = files.map(f => `
+    <div class="video-card">
+      <div class="video-thumb">🎬</div>
+      <div class="video-info">
+        <div class="video-name">${f.filename}</div>
+        <div class="video-meta">${f.frame_count} frames · ${f.description_count} scenes${f.face_count ? ' · ' + f.face_count + ' faces' : ''}${f.plate_count ? ' · ' + f.plate_count + ' plates' : ''} · ${new Date(f.processed_at).toLocaleDateString()}</div>
+      </div>
+      <div class="video-actions">
+        <a class="btn btn-ghost btn-sm" href="/api/files/${f.video_id}/download">⬇ MKV</a>
+        <a class="btn btn-ghost btn-sm" href="/api/files/${f.video_id}/srt">⬇ SRT</a>
+        <button class="btn btn-primary btn-sm" onclick="goSearch('${f.video_id}')">🔍 Search</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteVideo('${f.video_id}', this)">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+async function deleteVideo(id, btn) {
+  if (!confirm('Delete this video?')) return;
+  btn.disabled = true;
+  const r = await apiFetch(`/api/files/${id}`, { method: 'DELETE' });
+  if (r && r.ok) { toast('Deleted'); loadLibrary(); }
+}
+
+/* ── Known Faces ────────────────────────────────────────────────────────────── */
+function handleFaceDrop(e) {
+  e.preventDefault();
+  document.getElementById('face-drop-zone').classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) setFaceFile(f);
+}
+
+function handleFaceSelect(e) { const f = e.target.files[0]; if (f) setFaceFile(f); }
+
+function setFaceFile(file) {
+  selectedFaceFile = file;
+  const preview = document.getElementById('face-preview');
+  preview.style.display = 'block';
+  preview.src = URL.createObjectURL(file);
+  document.getElementById('face-drop-zone').textContent = file.name;
+}
+
+async function uploadFace() {
+  if (!selectedFaceFile) { toast('Please select a photo'); return; }
+  const name = document.getElementById('face-name-input').value.trim();
+  if (!name) { toast('Please enter a name'); return; }
+  const fd = new FormData();
+  fd.append('name', name);
+  fd.append('file', selectedFaceFile);
+  const r = await apiFetch('/api/known-faces', { method: 'POST', body: fd });
+  if (r && r.ok) {
+    toast(`Added ${name}`);
+    document.getElementById('face-name-input').value = '';
+    document.getElementById('face-drop-zone').textContent = 'Drop photo here or click to browse';
+    document.getElementById('face-preview').style.display = 'none';
+    selectedFaceFile = null;
+    loadFaces();
+  }
+}
+
+async function loadFaces() {
+  const r = await apiFetch('/api/known-faces'); if (!r) return;
+  const { faces } = await r.json();
+  const grid = document.getElementById('faces-grid');
+  if (!faces.length) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="empty-icon">👤</div>No known faces yet.</div>'; return; }
+  grid.innerHTML = faces.map(f => {
+    const photo = f.photos[0] ? `/api/known-faces/${encodeURIComponent(f.name)}/photo/${encodeURIComponent(f.photos[0])}` : null;
+    return `<div class="face-card">
+      <button class="face-del" onclick="deleteFace('${f.name}')">✕</button>
+      ${photo ? `<img class="face-avatar" src="${photo}" alt="${f.name}" />` : `<div class="face-avatar-placeholder">👤</div>`}
+      <div class="face-name">${f.name}</div>
+      <div class="face-count">${f.photo_count} photo${f.photo_count !== 1 ? 's' : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+async function deleteFace(name) {
+  if (!confirm(`Remove "${name}" from known faces?`)) return;
+  const r = await apiFetch(`/api/known-faces/${encodeURIComponent(name)}`, { method: 'DELETE' });
+  if (r && r.ok) { toast(`Removed ${name}`); loadFaces(); }
+}
+
+/* ── Search & Ask ───────────────────────────────────────────────────────────── */
+async function loadVideoSelector() {
+  const r = await apiFetch('/api/files'); if (!r) return;
+  const { files } = await r.json();
+  const sel = document.getElementById('video-selector');
+  sel.innerHTML = '<option value="">— Choose a processed video —</option>' +
+    files.map(f => `<option value="${f.video_id}">${f.filename}</option>`).join('');
+}
+
+function currentVideoId() {
+  const v = document.getElementById('video-selector').value;
+  if (!v) { toast('Select a video first'); return null; }
+  return v;
+}
+
+function goSearch(videoId) {
+  loadVideoSelector().then(() => { document.getElementById('video-selector').value = videoId; });
+  showPage('searchask', document.getElementById('tab-searchask'));
+}
+
+/* Filter chips */
+function toggleChip(name) {
+  currentChips[name] = !currentChips[name];
+  document.getElementById('chip-' + name).classList.toggle('active', currentChips[name]);
+  document.getElementById('filter-' + name).style.display = currentChips[name] ? 'flex' : 'none';
+}
+
+async function doSearch() {
+  const videoId = currentVideoId(); if (!videoId) return;
+  const query = document.getElementById('search-input').value.trim();
+  if (!query) return;
+
+  const body = {
+    video_id: videoId, query, top_k: 8,
+    face_filter: currentChips.face ? document.getElementById('face-filter-input').value.trim() || null : null,
+    plate_filter: currentChips.plate ? document.getElementById('plate-filter-input').value.trim() || null : null,
+    object_filter: currentChips.object ? document.getElementById('object-filter-input').value.trim() || null : null,
+  };
+
+  const r = await apiFetch('/api/search', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (!r) return;
+  const { results } = await r.json();
+  renderResults(results, videoId);
+}
+
+function renderResults(results, videoId) {
+  const el = document.getElementById('search-results');
+  if (!results.length) { el.innerHTML = '<div class="empty">No results found.</div>'; return; }
+  el.innerHTML = results.map(r => {
+    const faces = (r.faces || []).filter(f => f.name !== 'Unknown').map(f => `<span class="tag tag-face">👤 ${f.name}</span>`).join('');
+    const unknownCount = (r.faces || []).filter(f => f.name === 'Unknown').length;
+    const unknownTag = unknownCount ? `<span class="tag tag-face" style="opacity:.6">👤 Unknown ×${unknownCount}</span>` : '';
+    const plates = (r.plates || []).map(p => `<span class="tag tag-plate">🚗 ${p.plate_text}</span>`).join('');
+    const objs = Object.entries(r.objects?.objects || {}).slice(0,4).map(([k,v]) => `<span class="tag tag-obj">${k}×${v}</span>`).join('');
+    return `<div class="result-item" onclick="openFrame('${videoId}', ${r.timestamp_ms}, '${r.timestamp_human}', ${r.score.toFixed(3)}, ${JSON.stringify(r.description).replace(/'/g,"&#39;")}, ${JSON.stringify(r.faces||[])}, ${JSON.stringify(r.plates||[])}, ${JSON.stringify(r.objects||{})})">
+      <div style="display:flex;align-items:center;gap:.5rem">
+        <span class="result-ts">${r.timestamp_human}</span>
+        <span class="result-score">(${r.score.toFixed(2)})</span>
+      </div>
+      <div class="result-desc">${r.description}</div>
+      ${faces || unknownTag || plates || objs ? `<div class="result-tags">${faces}${unknownTag}${plates}${objs}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function doAsk() {
+  const videoId = currentVideoId(); if (!videoId) return;
+  const question = document.getElementById('ask-input').value.trim(); if (!question) return;
+  const output = document.getElementById('rag-output');
+  const tsEl = document.getElementById('rag-timestamps');
+  const btn = document.getElementById('ask-btn');
+  output.textContent = ''; tsEl.innerHTML = ''; btn.disabled = true; btn.textContent = 'Thinking…';
+  try {
+    const r = await apiFetch('/api/ask', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ video_id: videoId, question }) });
+    if (!r) { btn.disabled = false; btn.textContent = 'Ask'; return; }
+    const reader = r.body.getReader(); const decoder = new TextDecoder(); let buf = '';
+    while (true) {
+      const { done, value } = await reader.read(); if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const msg = JSON.parse(line.slice(6).trim());
+          if (msg.token) output.textContent += msg.token;
+          if (msg.done && msg.timestamps?.length) {
+            tsEl.innerHTML = msg.timestamps.map(ts => `<span class="ts-chip" onclick="copyTS('${ts}')">${ts}</span>`).join('');
+          }
+        } catch(_) {}
+      }
+    }
+  } finally { btn.disabled = false; btn.textContent = 'Ask'; }
+}
+
+/* ── Frame modal ─────────────────────────────────────────────────────────────── */
+function openFrame(videoId, tsMs, tsHuman, score, desc, faces, plates, objects) {
+  document.getElementById('modal-ts').textContent = tsHuman;
+  document.getElementById('modal-score').textContent = `Relevance: ${score}`;
+  document.getElementById('modal-desc').textContent = desc;
+
+  // Try to load frame image
+  const img = document.getElementById('modal-img');
+  img.style.display = 'none';
+  const src = `/api/files/${videoId}/frame/${tsMs}`;
+  img.onload = () => { img.style.display = 'block'; };
+  img.onerror = () => { img.style.display = 'none'; };
+  img.src = src;
+
+  // Build meta grid
+  const grid = document.getElementById('modal-meta');
+  let items = '';
+  const faceNames = (faces || []).map(f => f.name !== 'Unknown' ? `${f.name} (${(f.confidence*100).toFixed(0)}%)` : 'Unknown').join(', ') || '—';
+  const plateTexts = (plates || []).map(p => p.plate_text).join(', ') || '—';
+  const objCounts = Object.entries(objects?.objects || {}).map(([k,v]) => `${k} ×${v}`).join(', ') || '—';
+  items += `<div class="modal-item"><div class="modal-item-label">Faces</div><div class="modal-item-value">${faceNames}</div></div>`;
+  items += `<div class="modal-item"><div class="modal-item-label">License Plates</div><div class="modal-item-value">${plateTexts}</div></div>`;
+  items += `<div class="modal-item" style="grid-column:1/-1"><div class="modal-item-label">Objects</div><div class="modal-item-value">${objCounts}</div></div>`;
+  grid.innerHTML = items;
+
+  document.getElementById('frame-modal').classList.remove('hidden');
+}
+
+function closeModal() { document.getElementById('frame-modal').classList.add('hidden'); }
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+/* ── Utils ───────────────────────────────────────────────────────────────────── */
+function copyTS(ts) { navigator.clipboard.writeText(ts).then(() => toast('Copied ' + ts)); }
+
+let _toastT;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(_toastT);
+  _toastT = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+/* ── Init ────────────────────────────────────────────────────────────────────── */
+function init() {
+  loadLibrary();
+  const saved = localStorage.getItem('fiq_jobs');
+  if (saved) JSON.parse(saved).forEach(id => trackJob(id));
+}
+
+window.addEventListener('beforeunload', () => {
+  localStorage.setItem('fiq_jobs', JSON.stringify(Object.keys(activeJobs)));
+});
+
+checkAuth();
+</script>
+</body>
+</html>
